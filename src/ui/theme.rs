@@ -11,7 +11,7 @@ pub const CDE_DARK_GRAY: Color = Color::from_rgb(0.45, 0.46, 0.48);
 pub const CDE_BEVEL_LIGHT: Color = Color::from_rgb(0.95, 0.95, 0.97);
 pub const CDE_BEVEL_DARK: Color = Color::from_rgb(0.22, 0.23, 0.25);
 
-pub const INPUT_SUNKEN_BG: Color = Color::from_rgb(0.58, 0.59, 0.61)
+pub const INPUT_SUNKEN_BG: Color = Color::from_rgb(0.58, 0.59, 0.61);
 pub const TEXT_DARK: Color = Color::from_rgb(0.04, 0.04, 0.04);
 pub const TEXT_LIGHT: Color = Color::from_rgb(0.96, 0.97, 0.98);
 
