@@ -1,5 +1,4 @@
-pub mod theme;
 pub mod app;
+pub mod theme;
 
 pub use app::run_gui;
-

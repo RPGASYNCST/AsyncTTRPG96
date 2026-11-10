@@ -37,4 +37,3 @@ fn test_invalid_pool_limits_rejected() {
     cfg.max_connections = 10;
     assert!(cfg.validate().is_err());
 }
-
