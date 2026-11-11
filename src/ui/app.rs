@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, image, mouse_area, row, text, text_input, Space};
+use iced::widget::{Space, button, column, container, image, mouse_area, row, text, text_input};
 use iced::{Alignment, Color, Element, Length, Task};
 
 use crate::ui::theme::*;
@@ -180,22 +180,17 @@ impl RetroApp {
             Space::new().height(3),
             user_input,
             Space::new().height(12),
-            text("Senha")
-                .size(19)
-                .font(RETRO_UI_FONT)
-                .color(TEXT_DARK),
+            text("Senha").size(19).font(RETRO_UI_FONT).color(TEXT_DARK),
             Space::new().height(3),
             key_input,
             if let Some(msg) = &self.status_info {
-                Element::from(
-                    column![
-                        Space::new().height(4),
-                        text(msg)
-                            .size(15)
-                            .font(RETRO_UI_FONT)
-                            .color(Color::from_rgb(0.55, 0.12, 0.10)),
-                    ],
-                )
+                Element::from(column![
+                    Space::new().height(4),
+                    text(msg)
+                        .size(15)
+                        .font(RETRO_UI_FONT)
+                        .color(Color::from_rgb(0.55, 0.12, 0.10)),
+                ])
             } else {
                 Space::new().height(0).into()
             }
@@ -277,11 +272,9 @@ impl RetroApp {
 }
 
 pub fn run_gui() -> iced::Result {
-    let app_icon = iced::window::icon::from_file_data(
-        include_bytes!("../../assets/icons/logo.png"),
-        None,
-    )
-    .ok();
+    let app_icon =
+        iced::window::icon::from_file_data(include_bytes!("../../assets/icons/logo.png"), None)
+            .ok();
 
     iced::application(RetroApp::new, RetroApp::update, RetroApp::view)
         .title(RetroApp::title)

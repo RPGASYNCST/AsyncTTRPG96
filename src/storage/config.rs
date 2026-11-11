@@ -1,8 +1,8 @@
-use std::fs;
-use std::path::Path;
+use crate::storage::error::{StorageError, StorageResult};
 use serde::Deserialize;
 use sqlx::mysql::{MySqlConnectOptions, MySqlSslMode};
-use crate::storage::error::{StorageError, StorageResult};
+use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
@@ -91,5 +91,3 @@ impl DatabaseConfig {
         self.server_connect_options().database(&self.database)
     }
 }
-
-

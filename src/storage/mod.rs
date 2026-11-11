@@ -8,4 +8,3 @@ pub use error::{StorageError, StorageResult};
 
 /// Caminho padrao do arquivo de configuraçao
 pub const DEFAULT_CONFIG_PATH: &str = "config.json";
-

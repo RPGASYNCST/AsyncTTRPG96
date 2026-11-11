@@ -19,4 +19,3 @@ pub enum StorageError {
     #[error("Erro ao executar migrations do banco de dados: {0}")]
     Migration(#[from] sqlx::migrate::MigrateError),
 }
-

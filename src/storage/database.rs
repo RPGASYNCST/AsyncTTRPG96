@@ -1,7 +1,7 @@
-use std::path::Path;
-use std::time::{Duration, Instant};
 use sqlx::mysql::{MySqlConnection, MySqlPool, MySqlPoolOptions};
 use sqlx::{AssertSqlSafe, Connection, MySql, Transaction};
+use std::path::Path;
+use std::time::{Duration, Instant};
 use tokio::task::JoinHandle;
 
 use crate::storage::config::{AppConfig, DatabaseConfig};
@@ -92,7 +92,10 @@ impl DatabaseEngine {
             .await?;
         conn.close().await?;
 
-        tracing::info!("Banco de dados '{}' garantido com sucesso.", config.database);
+        tracing::info!(
+            "Banco de dados '{}' garantido com sucesso.",
+            config.database
+        );
         Ok(())
     }
 
@@ -175,4 +178,3 @@ impl DatabaseEngine {
         self.pool.close().await;
     }
 }
-
