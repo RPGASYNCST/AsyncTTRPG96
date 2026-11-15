@@ -1,0 +1,8 @@
+[advisories]
+ignore = [
+    # libsqlite3-sys (CVE-2026-119375): Falso positivo no projeto.
+    # O sqlx-sqlite consta no Cargo.lock apenas como dependência opcional inativa do sqlx;
+    # a aplicação utiliza exclusivamente o driver MySQL.
+    "RUSTSEC-2026-0459",
+]
+

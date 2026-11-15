@@ -13,7 +13,6 @@ fn sample_config() -> DatabaseConfig {
         idle_timeout_secs: 300,
         max_lifetime_secs: 1800,
         auto_create_database: true,
-        auto_migrate: true,
     }
 }
 

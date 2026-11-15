@@ -1,6 +1,6 @@
 # AsyncTTRPG96 🎲💻
 
-> **Um RPG de Mesa (TTRPG) Assíncrono com visual nostálgico dos anos 90 (estilo CDE / Windows 95), construído em Rust moderno com Iced, Tokio e MySQL (SQLx).**
+> **Um RPG de Mesa (TTRPG) Assíncrono com o consagrado design escultural e minimalista do NeXTSTEP (OPENSTEP), construído em Rust moderno com Iced, Tokio e MySQL (SQLx).**
 
 ---
 
@@ -8,9 +8,9 @@
 
 O **AsyncTTRPG96** é uma aplicação desktop desenvolvida para permitir sessões assíncronas de RPG de mesa (Tabletop RPG). Sua proposta une:
 
-1. **Estética Retrô Anos 90**: Interface personalizada inspirada no *Common Desktop Environment* (CDE) e *Windows 95/NT*, com efeitos de relevo 3D chanfrados (*bevels*, botões em baixo-relevo (*sunken*), janelas sem decorações nativas do SO e tipografia pixel art com fontes clássicas (*VT323* e *Silkscreen*).
+1. **Estética NeXTSTEP / OPENSTEP**: Interface inspirada no design escultural e refinado do lendário sistema operacional da NeXT. Conta com barra de título preta sólida com texto branco nítido, paleta em cinza neutro NeXT (`#B3B3B3`), moldura externa preta sólida de 2px, botões 3D volumosos chanfrados com contorno preto de alta precisão, campos de entrada brancos em baixo-relevo (*sunken*) e painéis de grupo sulcados (*grooved/etched*).
 2. **Alta Performance & Robustez**: Escrito em **Rust (edição 2024)**, aproveitando concorrência segura com **Tokio** e renderização reativa com a biblioteca de GUI **Iced 0.14**.
-3. **Persistência Relacional**: Camada de armazenamento assíncrona utilizando **MySQL** via **SQLx**, com suporte automático a criação de schemas, pool de conexões resiliente, migrações versionadas e monitor de integridade (*health-check*).
+3. **Persistência Relacional**: Camada de armazenamento assíncrona utilizando **MySQL** via **SQLx**, com suporte automático a criação de banco de dados, pool de conexões resiliente e monitor de integridade (*health-check*).
 
 ---
 
@@ -21,7 +21,7 @@ O **AsyncTTRPG96** é uma aplicação desktop desenvolvida para permitir sessõe
 | **Linguagem** | [Rust](https://www.rust-lang.org/) | Rust 2024 Edition (requer Rust 1.85+) |
 | **Interface Gráfica (GUI)** | [Iced](https://iced.rs/) | `0.14.0` (Tokio runtime, image support, advanced widgets) |
 | **Runtime Assíncrono** | [Tokio](https://tokio.rs/) | `1.54` (multi-thread, sync, fs, time) |
-| **Banco de Dados & ORM** | [SQLx](https://github.com/launchbadge/sqlx) | `0.9.0` (MySQL, migrations, runtime Tokio, rustls) |
+| **Banco de Dados & ORM** | [SQLx](https://github.com/launchbadge/sqlx) | `0.9.0` (MySQL, runtime Tokio, rustls) |
 | **Serialização** | [Serde](https://serde.rs/) / `serde_json` | `1.0` |
 | **Data e Hora** | [Chrono](https://github.com/chronotope/chrono) | `0.4` |
 | **Tratamento de Erros** | [thiserror](https://github.com/dtolnay/thiserror) | `2.0` |
@@ -42,21 +42,18 @@ AsyncTTRPG96/
 │       ├── d20.png               # Ícone do dado d20 clássico
 │       ├── d20_transparent.png
 │       └── logo.png              # Ícone da janela da aplicação
-├── migrations/                   # Scripts SQL versionados (SQLx)
-│   ├── 202611071105_INIT_SCHEMA.sql   # Tabela app_metadata e metadados
-│   └── 202611081106_CREATE_SCHEMA.sql # Criação do SCHEMA ASYNC
 ├── src/                          # Código-fonte principal
 │   ├── main.rs                   # Ponto de entrada (tracing + inicialização da GUI)
 │   ├── lib.rs                    # Exposição dos módulos `storage` e `ui`
 │   ├── storage/                  # Camada de banco de dados e configuração
 │   │   ├── mod.rs                # Reexportações do módulo storage
 │   │   ├── config.rs             # Deserialização e validação do config.json
-│   │   ├── database.rs           # Gerenciador de pool, migrations e health-check
+│   │   ├── database.rs           # Gerenciador de pool de conexões e health-check
 │   │   └── error.rs              # Definições de erros específicos (StorageError)
-│   └── ui/                       # Interface gráfica retro com Iced
+│   └── ui/                       # Interface gráfica NeXTSTEP com Iced
 │       ├── mod.rs                # Exporta run_gui e temas
 │       ├── app.rs                # Aplicação Iced (RetroApp: Model, View, Update)
-│       └── theme.rs              # Cores CDE, estilos 3D (sunken, etched, bevels)
+│       └── theme.rs              # Cores NeXTSTEP, botões esculturais e painéis sulcados
 ├── tests/                        # Testes automatizados
 │   └── config_test.rs            # Validações de limites e segurança da configuração
 ├── Cargo.toml                    # Manifesto do projeto e dependências Rust
@@ -108,8 +105,7 @@ O projeto utiliza um arquivo `config.json` na raiz para carregar as opções de 
     "connect_timeout_secs": 10,
     "idle_timeout_secs": 300,
     "max_lifetime_secs": 1800,
-    "auto_create_database": true,
-    "auto_migrate": true
+    "auto_create_database": true
   }
 }
 ```
@@ -151,9 +147,9 @@ RUST_LOG=info cargo run
 |   +-----------------------+     +---------------------+   |
 |   |        UI (Iced)      |     |   Storage (SQLx)    |   |
 |   |  - RetroApp (MVU)     |     |  - DatabaseEngine   |   |
-|   |  - Theme (CDE / 90s)  |<--->|  - Connection Pool  |   |
-|   |  - Custom Frameless   |     |  - Auto-Migrations  |   |
-|   |  - Pixel Font/Icons   |     |  - Health Monitor   |   |
+|   |  - Theme (NeXTSTEP)   |<--->|  - Connection Pool  |   |
+|   |  - Custom Frameless   |     |  - Health Monitor   |   |
+|   |  - Sculpted / Bevels  |     |  - Safe Validation  |   |
 |   +-----------------------+     +---------------------+   |
 +--------------------------------------------|--------------+
                                              v
@@ -165,13 +161,12 @@ RUST_LOG=info cargo run
 
 ### Arquitetura da Interface (`src/ui/`)
 - **Padrão Elm / MVU (Model-View-Update)**: O `RetroApp` gerencia o estado através de `Message`s claras (`UsernameChanged`, `AccessKeyChanged`, `Connect`, `CreateSheet`, `Options`, `Minimize`, `Close`, etc.).
-- **Window Management Customizado**: A janela é iniciada sem decorações nativas do sistema (`decorations: false`), permitindo um cabeçalho personalizado em estilo retrô com suporte a clique e arrasto (`iced::window::drag`).
-- **Widgets e Painéis 3D**: `sunken_3d` e `etched_panel` implementam efeitos visuais de bordas chanfradas clássicas usando camadas de `iced::widget::container`.
+- **Window Management Customizado**: A janela é iniciada sem decorações nativas do sistema (`decorations: false`), com barra de título preta sólida NeXTSTEP com suporte a clique e arrasto (`iced::window::drag`).
+- **Widgets e Painéis NeXTSTEP**: `sunken_3d` (inputs escavados com fundo branco puro), `etched_panel` (painéis com sulco/groove do Interface Builder) e botões esculturais com destaque chanfrado e contorno preto de alta precisão.
 
 ### Motor de Banco de Dados (`src/storage/`)
 - **`DatabaseEngine`**: Gerencia o pool assíncrono via `sqlx::MySqlPool`.
 - **Criação Automática**: Caso a base de dados configurada ainda não exista, o método `ensure_database_exists` conecta ao servidor MySQL e executa `CREATE DATABASE IF NOT EXISTS`.
-- **Auto-Migrações**: Executa automaticamente os arquivos contidos na pasta `migrations/` ao iniciar a conexão.
 - **Monitor de Saúde em Background**: `spawn_health_monitor` permite agendar verificações periódicas de latência e integridade sem bloquear a UI.
 
 ---
@@ -179,11 +174,12 @@ RUST_LOG=info cargo run
 ## 🗺️ Roadmap de Desenvolvimento
 
 - [x] Base do projeto em Rust 2024.
-- [x] Tela de Sessão de Acesso retrô anos 90 com Iced.
+- [x] Tela de Sessão de Acesso no estilo NeXTSTEP com Iced.
+- [x] Tela de Criar Sessão com layout NeXTSTEP, GroupBoxes e parâmetros de mesa.
 - [x] Módulo de configuração e validação com `config.json`.
-- [x] Motor MySQL com migrations embutidas (`sqlx::migrate!`).
+- [x] Motor MySQL com pool de conexões e health-check configurável.
 - [ ] Conectar o botão **"Conectar"** à autenticação real de usuários no banco.
-- [ ] Implementar a janela e fluxo de **"Criar Sessão"**.
+- [ ] Persistir e iniciar a sessão criada no banco de dados.
 - [ ] Interface de Ficha de Personagem retrô (atributos, inventário, perícias).
 - [ ] Sistema de rolagem de dados (D20, D6, D100, etc.) com registro no histórico da sessão.
 - [ ] Troca de mensagens e ações assíncronas entre Mestre e Jogadores.

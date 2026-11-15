@@ -63,10 +63,6 @@ impl DatabaseEngine {
         // Testa conexao
         engine.ping().await?;
 
-        if engine.config.auto_migrate {
-            engine.run_migrations().await?;
-        }
-
         tracing::info!("Motor de banco de dados MySQL pronto e operacional.");
         Ok(engine)
     }
@@ -96,13 +92,6 @@ impl DatabaseEngine {
             "Banco de dados '{}' garantido com sucesso.",
             config.database
         );
-        Ok(())
-    }
-
-    pub async fn run_migrations(&self) -> StorageResult<()> {
-        tracing::info!("Executando migrations do banco de dados...");
-        sqlx::migrate!("./migrations").run(&self.pool).await?;
-        tracing::info!("Migrations aplicadas com sucesso.");
         Ok(())
     }
 

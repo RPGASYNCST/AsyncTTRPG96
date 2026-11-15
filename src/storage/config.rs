@@ -7,15 +7,51 @@ use std::path::Path;
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
     pub database: DatabaseConfig,
+    #[serde(default)]
+    pub smtp: Option<SmtpConfig>,
 }
 
 impl AppConfig {
-    /// Carrega a configuracao do banco (config.json)
     pub fn load<P: AsRef<Path>>(path: P) -> StorageResult<Self> {
         let content = fs::read_to_string(path.as_ref())?;
         let config: Self = serde_json::from_str(&content)?;
         config.database.validate()?;
+        if let Some(smtp) = &config.smtp {
+            smtp.validate()?;
+        }
         Ok(config)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SmtpConfig {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: String,
+    pub from_email: String,
+    pub from_name: String,
+    pub use_tls: bool,
+}
+
+impl SmtpConfig {
+    pub fn validate(&self) -> StorageResult<()> {
+        if self.host.trim().is_empty() {
+            return Err(StorageError::InvalidConfig(
+                "O campo 'smtp.host' nao pode estar vazio.".to_string(),
+            ));
+        }
+        if self.port == 0 {
+            return Err(StorageError::InvalidConfig(
+                "A porta do servidor SMTP deve ser maior que zero.".to_string(),
+            ));
+        }
+        if self.from_email.trim().is_empty() || !self.from_email.contains('@') {
+            return Err(StorageError::InvalidConfig(
+                "O campo 'smtp.from_email' deve ser um e-mail valido.".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -31,8 +67,8 @@ pub struct DatabaseConfig {
     pub connect_timeout_secs: u64,
     pub idle_timeout_secs: u64,
     pub max_lifetime_secs: u64,
+    #[serde(default)]
     pub auto_create_database: bool,
-    pub auto_migrate: bool,
 }
 
 impl DatabaseConfig {

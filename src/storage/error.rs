@@ -15,7 +15,4 @@ pub enum StorageError {
 
     #[error("Erro no banco de dados MySQL: {0}")]
     Database(#[from] sqlx::Error),
-
-    #[error("Erro ao executar migrations do banco de dados: {0}")]
-    Migration(#[from] sqlx::migrate::MigrateError),
 }
