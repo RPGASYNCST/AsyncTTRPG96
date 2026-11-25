@@ -1,0 +1,408 @@
+name: Pipeline RPGASYNC
+
+on:
+  workflow_call:
+    inputs:
+      infra_repo:
+        description: "Repositório de infraestrutura (ex: usuario/AsyncRpgInfra)"
+        required: false
+        type: string
+      infra_ref:
+        description: "Branch ou tag do repositório de infraestrutura"
+        required: false
+        type: string
+        default: "main"
+    secrets:
+      INFRA_TOKEN:
+        description: "Token de leitura caso o AsyncRpgInfra seja um repositório privado"
+        required: false
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+  RUSTDOCFLAGS: "-D warnings"
+  DATABASE_URL: "mysql://rpg_ci:rpg_ci_pass@127.0.0.1:3307/async_rpg_ci"
+
+jobs:
+  fmt-and-deps:
+    name: Formatação (fmt) & Dependências (machete)
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout do código da aplicação
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Baixar configurações do AsyncRpgInfra
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.infra_repo || format('{0}/AsyncRpgInfra', github.repository_owner) }}
+          ref: ${{ inputs.infra_ref }}
+          path: .async-rpg-infra
+          token: ${{ secrets.INFRA_TOKEN || github.token }}
+
+      - name: Aplicar rustfmt.toml do AsyncRpgInfra
+        run: |
+          if [ ! -f rustfmt.toml ] && [ -f .async-rpg-infra/rustfmt.toml ]; then
+            cp .async-rpg-infra/rustfmt.toml rustfmt.toml
+          fi
+          rm -rf .async-rpg-infra
+
+      - name: Configurar Toolchain Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Verificar formatação (cargo fmt)
+        run: cargo fmt --all -- --check
+
+      - name: Instalar cargo-machete (se não existir no runner)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+
+      - name: Verificar dependências não utilizadas (cargo machete)
+        run: cargo machete --with-metadata
+
+  security-and-licenses:
+    name: Segurança (audit) & Licenças (deny)
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout do código da aplicação
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Baixar configurações do AsyncRpgInfra
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.infra_repo || format('{0}/AsyncRpgInfra', github.repository_owner) }}
+          ref: ${{ inputs.infra_ref }}
+          path: .async-rpg-infra
+          token: ${{ secrets.INFRA_TOKEN || github.token }}
+
+      - name: Aplicar deny.toml do AsyncRpgInfra
+        run: |
+          if [ ! -f deny.toml ] && [ -f .async-rpg-infra/deny.toml ]; then
+            cp .async-rpg-infra/deny.toml deny.toml
+          fi
+          rm -rf .async-rpg-infra
+
+      - name: Configurar Toolchain Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Instalar cargo-audit e cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit, cargo-deny
+
+      - name: Auditoria de Vulnerabilidades CVE (cargo audit)
+        run: cargo audit
+
+      - name: Verificar Licenças, Crates Banidas e Fontes (cargo deny)
+        run: cargo deny check advisories bans licenses sources
+
+  lint-and-check:
+    name: Check & Clippy (Iced + Deps)
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout do código da aplicação
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Baixar configurações do AsyncRpgInfra
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.infra_repo || format('{0}/AsyncRpgInfra', github.repository_owner) }}
+          ref: ${{ inputs.infra_ref }}
+          path: .async-rpg-infra
+          token: ${{ secrets.INFRA_TOKEN || github.token }}
+
+      - name: Aplicar clippy.toml e .cargo/config.toml do AsyncRpgInfra
+        run: |
+          if [ ! -f clippy.toml ] && [ -f .async-rpg-infra/clippy.toml ]; then
+            cp .async-rpg-infra/clippy.toml clippy.toml
+          fi
+          if [ ! -f .cargo/config.toml ] && [ -f .async-rpg-infra/.cargo/config.toml ]; then
+            mkdir -p .cargo
+            cp .async-rpg-infra/.cargo/config.toml .cargo/config.toml
+          fi
+          rm -rf .async-rpg-infra
+
+      - name: Garantir dependências de sistema
+        run: |
+          REQUIRED_PKGS=(
+            build-essential
+            pkg-config
+            cmake
+            clang
+            lld
+            libssl-dev
+            libudev-dev
+            libasound2-dev
+            libexpat1-dev
+            libfreetype6-dev
+            libfontconfig1-dev
+            libxcb1-dev
+            libxcb-render0-dev
+            libxcb-shape0-dev
+            libxcb-xfixes0-dev
+            libxkbcommon-dev
+            libxkbcommon-x11-dev
+            libwayland-dev
+            libx11-dev
+            libxcursor-dev
+            libxi-dev
+            libxrandr-dev
+            libinerama-dev
+            libgl1-mesa-dev
+            libvulkan-dev
+            xvfb
+          )
+          MISSING_PKGS=()
+          for pkg in "${REQUIRED_PKGS[@]}"; do
+            if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+              MISSING_PKGS+=("$pkg")
+            fi
+          done
+          if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
+            echo "::error::Faltam pacotes de sistema no runner (e o runner não usa sudo sem senha)."
+            echo "Conecte-se ao servidor do runner e execute uma única vez com seu usuário administrador:"
+            echo ""
+            echo "  sudo apt-get update && sudo apt-get install -y --no-install-recommends ${MISSING_PKGS[*]}"
+            echo ""
+            exit 1
+          else
+            echo "Todas as dependências de sistema do Iced já estão instaladas no runner."
+          fi
+
+      - name: Subir MariaDB efêmero de testes (porta 3307 em RAM)
+        run: |
+          if ! docker info >/dev/null 2>&1; then
+            echo "::error::O usuário do runner ($USER) não tem permissão para usar Docker sem sudo."
+            echo "Execute uma única vez no servidor Linux: sudo usermod -aG docker $USER"
+            exit 1
+          fi
+          docker rm -f async-rpg-mariadb-ci >/dev/null 2>&1 || true
+          docker run -d \
+            --name async-rpg-mariadb-ci \
+            -p 127.0.0.1:3307:3306 \
+            --tmpfs /var/lib/mysql:rw \
+            -e MARIADB_ROOT_PASSWORD=rpg_ci_root \
+            -e MARIADB_DATABASE=async_rpg_ci \
+            -e MARIADB_USER=rpg_ci \
+            -e MARIADB_PASSWORD=rpg_ci_pass \
+            mariadb:11.4 \
+            --character-set-server=utf8mb4 \
+            --collation-server=utf8mb4_unicode_ci
+
+          echo "Aguardando MariaDB de CI inicializar..."
+          for i in {1..30}; do
+            if docker exec async-rpg-mariadb-ci healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1; then
+              # Concede permissão global ao usuário rpg_ci para suportar #[sqlx::test] (que cria bancos temporários)
+              docker exec async-rpg-mariadb-ci mariadb -uroot -prpg_ci_root -e \
+                "GRANT ALL PRIVILEGES ON *.* TO 'rpg_ci'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+              echo "MariaDB de CI pronto na porta 3307!"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::Timeout aguardando o MariaDB de CI iniciar."
+              docker logs async-rpg-mariadb-ci
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Instalar sqlx-cli e rodar migrations no banco de CI (se existir pasta migrations/)
+        if: ${{ hashFiles('migrations/**') != '' }}
+        uses: taiki-e/install-action@v2
+        with:
+          tool: sqlx-cli
+
+      - name: Aplicar migrations do sqlx no MariaDB de CI
+        if: ${{ hashFiles('migrations/**') != '' }}
+        run: sqlx migrate run
+
+      - name: Configurar Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache de compilação do Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Verificar compilação (cargo check)
+        run: cargo check --workspace --all-targets --all-features --locked
+
+      - name: Análise estática rigorosa (cargo clippy)
+        run: >
+          cargo clippy --workspace --all-targets --all-features --locked --
+          -D warnings
+          -W clippy::dbg_macro
+          -W clippy::todo
+          -W clippy::unimplemented
+          -W clippy::unwrap_used
+          -W clippy::inefficient_to_string
+          -W clippy::needless_pass_by_value
+
+  test:
+    name: Testes (nextest + doctests)
+    runs-on: [self-hosted, linux]
+    needs: [lint-and-check]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout do código da aplicação
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Baixar configurações do AsyncRpgInfra
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.infra_repo || format('{0}/AsyncRpgInfra', github.repository_owner) }}
+          ref: ${{ inputs.infra_ref }}
+          path: .async-rpg-infra
+          token: ${{ secrets.INFRA_TOKEN || github.token }}
+
+      - name: Aplicar .config/nextest.toml e .cargo/config.toml do AsyncRpgInfra
+        run: |
+          if [ ! -f .config/nextest.toml ] && [ -f .async-rpg-infra/.config/nextest.toml ]; then
+            mkdir -p .config
+            cp .async-rpg-infra/.config/nextest.toml .config/nextest.toml
+          fi
+          if [ ! -f .cargo/config.toml ] && [ -f .async-rpg-infra/.cargo/config.toml ]; then
+            mkdir -p .cargo
+            cp .async-rpg-infra/.cargo/config.toml .cargo/config.toml
+          fi
+          rm -rf .async-rpg-infra
+
+      - name: Configurar Toolchain Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Instalar cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Cache de compilação do Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Executar testes unitários e de integração
+        run: xvfb-run --auto-servernum cargo nextest run --workspace --all-features --locked --profile ci
+
+      - name: Executar Doctests
+        run: cargo test --doc --workspace --all-features --locked
+
+      - name: Upload do relatório de testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextest-junit-report
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  docs-and-coverage:
+    name: Documentação e Cobertura
+    runs-on: [self-hosted, linux]
+    needs: [lint-and-check]
+    timeout-minutes: 35
+    steps:
+      - name: Checkout do código da aplicação
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Baixar configurações do AsyncRpgInfra
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.infra_repo || format('{0}/AsyncRpgInfra', github.repository_owner) }}
+          ref: ${{ inputs.infra_ref }}
+          path: .async-rpg-infra
+          token: ${{ secrets.INFRA_TOKEN || github.token }}
+
+      - name: Aplicar .cargo/config.toml do AsyncRpgInfra
+        run: |
+          if [ ! -f .cargo/config.toml ] && [ -f .async-rpg-infra/.cargo/config.toml ]; then
+            mkdir -p .cargo
+            cp .async-rpg-infra/.cargo/config.toml .cargo/config.toml
+          fi
+          rm -rf .async-rpg-infra
+
+      - name: Configurar Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Instalar cargo-llvm-cov e cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov, cargo-nextest
+
+      - name: Cache de compilação do Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Validar geração da Documentação
+        run: cargo doc --workspace --all-features --no-deps --document-private-items --locked
+
+      - name: Gerar relatório de Cobertura de Testes
+        run: >
+          xvfb-run --auto-servernum
+          cargo llvm-cov nextest
+          --workspace
+          --all-features
+          --locked
+          --lcov
+          --output-path lcov.info
+
+      - name: Exibir resumo de cobertura no log da Action
+        run: cargo llvm-cov report --summary-only
+
+      - name: Upload do relatório de cobertura (Artefato)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-lcov
+          path: lcov.info
+          retention-days: 14
+
+  ci-gate:
+    name: CI Gate (Todos os Testes Passaram)
+    runs-on: [self-hosted, linux]
+    if: always()
+    needs:
+      - fmt-and-deps
+      - security-and-licenses
+      - lint-and-check
+      - test
+      - docs-and-coverage
+    steps:
+      - name: Remover container efêmero do MariaDB de CI
+        run: docker rm -f async-rpg-mariadb-ci >/dev/null 2>&1 || true
+
+      - name: Verificar resultado de todos os jobs da pipeline
+        run: |
+          if [[ "${{ needs.fmt-and-deps.result }}" != "success" || \
+                "${{ needs.security-and-licenses.result }}" != "success" || \
+                "${{ needs.lint-and-check.result }}" != "success" || \
+                "${{ needs.test.result }}" != "success" || \
+                "${{ needs.docs-and-coverage.result }}" != "success" ]]; then
+            echo "::error::Um ou mais jobs obrigatórios da pipeline falharam ou foram cancelados."
+            exit 1
+          fi
+          echo "Todos os jobs da pipeline passaram com sucesso!"
